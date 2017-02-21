@@ -163,7 +163,8 @@ def create_parser(func, env_prefix=None, config_file=None, config_section=None,
     arguments will raise a ValueError exception. A prefix on expected
     environment variables can be added using the env_prefix argument.
     """
-    defaults = DefaultsManager(env_prefix, config_file, func.__name__)
+    section = config_section if config_section is not None else func.__name__
+    defaults = DefaultsManager(env_prefix, config_file, section)
     parser = argparse.ArgumentParser(
             prog=program_name(sys.argv[0], func),
             argument_default=NODEFAULT,
@@ -194,7 +195,8 @@ def create_parser(func, env_prefix=None, config_file=None, config_section=None,
             subparser = subparsers.add_parser(subfunc.__name__, help=help,
                     conflict_handler='resolve', description=subfunc.__doc__,
                     formatter_class=formatter_class)
-            defaults.set_config_section(subfunc.__name__)
+            section = config_section if config_section is not None else subfunc.__name__
+            defaults.set_config_section(section)
             populate_parser(subparser, defaults, funcsig, short_args, lexical_order)
     return parser
 
