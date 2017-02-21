@@ -58,10 +58,16 @@ class DefaultsManager(object):
         "Get default value from argument name"
         if len(self._parser.sections()) > 0:
             section = self._section if section is None else section
-            try:
-                default = self._parser.get(section, name)
-            except (configparser.NoSectionError, configparser.NoOptionError):
-                pass
+            if isinstance(section, list):
+                sections = section
+            else:
+                sections = []
+                sections.append(section)
+            for section in sections:
+                try:
+                    default = self._parser.get(section, name)
+                except (configparser.NoSectionError, configparser.NoOptionError):
+                    pass
         if self._use_env:
             default = os.environ.get(self.metavar(name), default)
         return default
