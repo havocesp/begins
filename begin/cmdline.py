@@ -58,10 +58,16 @@ class DefaultsManager(object):
         "Get default value from argument name"
         if len(self._parser.sections()) > 0:
             section = self._section if section is None else section
-            try:
-                default = self._parser.get(section, name)
-            except (configparser.NoSectionError, configparser.NoOptionError):
-                pass
+            if isinstance(section, list):
+                sections = section
+            else:
+                sections = []
+                sections.append(section)
+            for section in sections:
+                try:
+                    default = self._parser.get(section, name)
+                except (configparser.NoSectionError, configparser.NoOptionError):
+                    pass
         if self._use_env:
             default = os.environ.get(self.metavar(name), default)
         return default
@@ -163,7 +169,8 @@ def create_parser(func, env_prefix=None, config_file=None, config_section=None,
     arguments will raise a ValueError exception. A prefix on expected
     environment variables can be added using the env_prefix argument.
     """
-    defaults = DefaultsManager(env_prefix, config_file, func.__name__)
+    section = config_section if config_section is not None else func.__name__
+    defaults = DefaultsManager(env_prefix, config_file, section)
     parser = argparse.ArgumentParser(
             prog=program_name(sys.argv[0], func),
             argument_default=NODEFAULT,
@@ -194,7 +201,8 @@ def create_parser(func, env_prefix=None, config_file=None, config_section=None,
             subparser = subparsers.add_parser(subfunc.__name__, help=help,
                     conflict_handler='resolve', description=subfunc.__doc__,
                     formatter_class=formatter_class)
-            defaults.set_config_section(subfunc.__name__)
+            section = config_section if config_section is not None else subfunc.__name__
+            defaults.set_config_section(section)
             populate_parser(subparser, defaults, funcsig, short_args, lexical_order)
     return parser
 
