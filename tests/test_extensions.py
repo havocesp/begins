@@ -181,4 +181,4 @@ class TestLoging(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    unittest.begin()
+    unittest.main()

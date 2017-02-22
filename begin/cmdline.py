@@ -2,6 +2,7 @@
 import argparse
 import os
 import sys
+import warnings
 
 try:
     import configparser
@@ -17,7 +18,6 @@ from begin import context, extensions, subcommands, utils
 
 __all__ = ['create_parser', 'populate_parser',
            'apply_options', 'call_function']
-
 
 NODEFAULT = object()
 
@@ -37,10 +37,11 @@ class DefaultsManager(object):
         self._use_env = env_prefix is not None
         self._prefix = '' if not self._use_env else env_prefix
         self._parser = configparser.ConfigParser()
-        self._section = config_section
+        self._section = None
+        self.section = config_section
         if config_file is not None:
             self._parser.read([config_file,
-                os.path.join(os.path.expanduser('~'), config_file)])
+                               os.path.join(os.path.expanduser('~'), config_file)])
 
     def metavar(self, name):
         "Generate meta variable name for parameter"
@@ -56,24 +57,44 @@ class DefaultsManager(object):
 
     def from_name(self, name, default=NODEFAULT, section=None):
         "Get default value from argument name"
-        if len(self._parser.sections()) > 0:
-            section = self._section if section is None else section
-            if isinstance(section, list):
-                sections = section
-            else:
-                sections = []
-                sections.append(section)
-            for section in sections:
+        sections = self._get_list_section(section) if section is not None else self.section
+        if len(sections) > 0:
+            for sec in self.section:
                 try:
-                    default = self._parser.get(section, name)
+                    default = self._parser.get(sec, name)
                 except (configparser.NoSectionError, configparser.NoOptionError):
                     pass
         if self._use_env:
             default = os.environ.get(self.metavar(name), default)
         return default
 
+    @property
+    def section(self):
+        return self._section
+
+    @section.setter
+    def section(self, section):
+        self._section = self._get_list_section(section)
+
+    @staticmethod
+    def _get_list_section(section):
+        if isinstance(section, list):
+            _section = section
+        elif isinstance(section, str):
+            _section = list()
+            _section.append(section)
+        elif section is None:
+            return list()
+        else:
+            raise TypeError(
+                "'config_section' should be of {} or {}. You passed {}.".format(type(list()),
+                                                                                type(str()),
+                                                                                type(section)))
+        return _section
+
     def set_config_section(self, section):
-        self._section = section
+        warnings.warn("deprecated. Please, use 'DefaultsManager.section' setter", DeprecationWarning)
+        self.section = section
 
 
 def program_name(filename, func):
@@ -100,11 +121,11 @@ def populate_flag(parser, param, defaults):
     if param.annotation is not param.empty:
         help = param.annotation + ' '
     parser.add_argument('--' + param.name.replace('_', '-'),
-            action='store_true', default=default, dest=param.name,
-            help=(help + '(default: %(default)s)'if not default else ''))
+                        action='store_true', default=default, dest=param.name,
+                        help=(help + '(default: %(default)s)' if not default else ''))
     parser.add_argument('--no-' + param.name.replace('_', '-'),
-            action='store_false', default=default, dest=param.name,
-            help=(help + '(default: %(default)s)' if default else ''))
+                        action='store_false', default=default, dest=param.name,
+                        help=(help + '(default: %(default)s)' if default else ''))
 
 
 def populate_option(parser, param, defaults, short_args):
@@ -139,8 +160,8 @@ def populate_parser(parser, defaults, funcsig, short_args, lexical_order):
         params = sorted(params, key=lambda p: p.name)
     for param in params:
         if param.kind == param.POSITIONAL_OR_KEYWORD or \
-                param.kind == param.KEYWORD_ONLY or \
-                param.kind == param.POSITIONAL_ONLY:
+                        param.kind == param.KEYWORD_ONLY or \
+                        param.kind == param.POSITIONAL_ONLY:
             if isinstance(param.default, bool):
                 populate_flag(parser, param, defaults)
             else:
@@ -157,8 +178,8 @@ def populate_parser(parser, defaults, funcsig, short_args, lexical_order):
 
 
 def create_parser(func, env_prefix=None, config_file=None, config_section=None,
-        short_args=True, lexical_order=False, sub_group=None, plugins=None,
-        collector=None, formatter_class=argparse.HelpFormatter):
+                  short_args=True, lexical_order=False, sub_group=None, plugins=None,
+                  collector=None, formatter_class=argparse.HelpFormatter):
     """Create and OptionParser object from a function definition.
 
     Use the function's signature to generate an OptionParser object. Default
@@ -169,14 +190,19 @@ def create_parser(func, env_prefix=None, config_file=None, config_section=None,
     arguments will raise a ValueError exception. A prefix on expected
     environment variables can be added using the env_prefix argument.
     """
-    section = config_section if config_section is not None else func.__name__
+    section = func.__name__
+    if config_section is not None:
+        if config_file is not None:
+            section = config_section
+        else:
+            warnings.warn("You passed 'config_section' but 'config_file' is missing.")
     defaults = DefaultsManager(env_prefix, config_file, section)
     parser = argparse.ArgumentParser(
-            prog=program_name(sys.argv[0], func),
-            argument_default=NODEFAULT,
-            conflict_handler='resolve',
-            description = func.__doc__,
-            formatter_class=formatter_class
+        prog=program_name(sys.argv[0], func),
+        argument_default=NODEFAULT,
+        conflict_handler='resolve',
+        description=func.__doc__,
+        formatter_class=formatter_class
     )
     # Main function
     while hasattr(func, '__wrapped__') and not hasattr(func, '__signature__'):
@@ -191,18 +217,23 @@ def create_parser(func, env_prefix=None, config_file=None, config_section=None,
         collector.load_plugins(plugins)
     if len(collector) > 0:
         subparsers = parser.add_subparsers(title='Available subcommands',
-                dest='_subcommand')
+                                           dest='_subcommand')
         subparsers.required = True
         for subfunc in collector.commands():
-            funcsig  = signature(subfunc)
+            funcsig = signature(subfunc)
             help = None
             if subfunc.__doc__ is not None:
                 help = subfunc.__doc__.splitlines()[0]
             subparser = subparsers.add_parser(subfunc.__name__, help=help,
-                    conflict_handler='resolve', description=subfunc.__doc__,
-                    formatter_class=formatter_class)
-            section = config_section if config_section is not None else subfunc.__name__
-            defaults.set_config_section(section)
+                                              conflict_handler='resolve', description=subfunc.__doc__,
+                                              formatter_class=formatter_class)
+            section = subfunc.__name__
+            if config_section is not None:
+                if config_file is not None:
+                    section = config_section
+                else:
+                    warnings.warn("You passed 'config_section' but 'config_file' is missing.")
+            defaults.section = section
             populate_parser(subparser, defaults, funcsig, short_args, lexical_order)
     return parser
 
@@ -216,6 +247,7 @@ def call_function(func, funcsig, opts):
     options object or to failure to use the command line arguments list will
     result in a CommandLineError being raised.
     """
+
     def getoption(opts, name, default=None):
         if not hasattr(opts, name):
             msg = "Missing command line options '{0}'".format(name)
@@ -229,11 +261,12 @@ def call_function(func, funcsig, opts):
             else:
                 value = default
         return value
+
     pargs = []
     kwargs = {}
     for param in funcsig.parameters.values():
         if param.kind == param.POSITIONAL_OR_KEYWORD or \
-                param.kind == param.POSITIONAL_ONLY:
+                        param.kind == param.POSITIONAL_ONLY:
             pargs.append(getoption(opts, param.name))
         elif param.kind == param.VAR_POSITIONAL:
             pargs.extend(getoption(opts, param.name, []))

@@ -81,7 +81,7 @@ class TestStart(unittest.TestCase):
     def test_command_line(self):
         target = mock.Mock()
         try:
-            orig_argv= sys.argv
+            orig_argv = sys.argv
             sys.argv = orig_argv[:1] + ['A']
             orig_name = globals()['__name__']
             globals()['__name__'] = "__main__"
@@ -401,4 +401,4 @@ class TestStart(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    unittest.begin()
+    unittest.main()

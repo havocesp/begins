@@ -174,6 +174,45 @@ def test_variable_positional_with_annotation(self):
         self.assertEqual(parser._optionals._actions[1].default, 'value')
         self.assertEqual(parser._optionals._actions[2].default, cmdline.NODEFAULT)
 
+    @mock.patch('os.path.expanduser')
+    def test_configfile_config_section(self, expanduser):
+        def main(arg, unk, foo_arg):
+            pass
+        expanduser.return_value = os.path.join(os.curdir, 'tests')
+        parser = cmdline.create_parser(main, config_file='config_test.cfg', config_section='foo')
+        self.assertEqual(parser._optionals._actions[1].default, 'alt_value')
+        self.assertEqual(parser._optionals._actions[2].default, cmdline.NODEFAULT)
+        self.assertEqual(parser._optionals._actions[3].default, 'foo_value')
+
+    @mock.patch('os.path.expanduser')
+    def test_configfile_multiple_config_section(self, expanduser):
+        def main(arg, unk, foo_arg, bar_arg):
+            pass
+        expanduser.return_value = os.path.join(os.curdir, 'tests')
+        parser = cmdline.create_parser(main, config_file='config_test.cfg', config_section=['foo', 'bar'])
+        self.assertEqual(parser._optionals._actions[1].default, 'alt_value')
+        self.assertEqual(parser._optionals._actions[2].default, cmdline.NODEFAULT)
+        self.assertEqual(parser._optionals._actions[3].default, 'foo_value')
+        self.assertEqual(parser._optionals._actions[4].default, 'bar_value')
+
+    @mock.patch('os.path.expanduser')
+    def test_configfile_wrong_config_section(self, expanduser):
+        def main(arg, unk, foo_arg, bar_arg):
+            pass
+        expanduser.return_value = os.path.join(os.curdir, 'tests')
+        with self.assertRaises(TypeError):
+            cmdline.create_parser(main, config_file='config_test.cfg', config_section=('foo', 'bar'))
+        with self.assertRaises(TypeError):
+            cmdline.create_parser(main, config_file='config_test.cfg', config_section={'foo', 'bar'})
+
+    @mock.patch('os.path.expanduser')
+    def test_configfile_missing_config_file(self, expanduser):
+        def main(arg, unk):
+            pass
+        expanduser.return_value = os.path.join(os.curdir, 'tests')
+        with self.assertWarns(UserWarning):
+            cmdline.create_parser(main, config_section='foo')
+
     def test_help_strings(self):
         def main(a, b=None):
             pass
@@ -374,4 +413,4 @@ def test_keyword_only(self):
 
 
 if __name__ == "__main__":
-    unittest.begin()
+    unittest.main()
