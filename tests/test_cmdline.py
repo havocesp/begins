@@ -204,7 +204,7 @@ def test_variable_positional_with_annotation(self):
         with self.assertRaises(TypeError):
             cmdline.create_parser(main, config_file='config_test.cfg', config_section=('foo', 'bar'))
         with self.assertRaises(TypeError):
-            cmdline.create_parser(main, config_file='config_test.cfg', config_section={'foo', 'bar'})
+            cmdline.create_parser(main, config_file='config_test.cfg', config_section=set(['foo', 'bar']))
 
     @mock.patch('os.path.expanduser')
     def test_configfile_missing_config_file(self, expanduser):
@@ -345,7 +345,7 @@ class TestApplyOptions(unittest.TestCase):
 
     def test_variable_keywords(self):
         def main(**kwargs):
-            return dict(args)
+            return dict(kwargs)
         with self.assertRaises(cmdline.CommandLineError):
             value = cmdline.apply_options(main, self.opts)
 
