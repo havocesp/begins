@@ -58,12 +58,12 @@ class DefaultsManager(object):
     def from_name(self, name, default=NODEFAULT, section=None):
         "Get default value from argument name"
         sections = self._get_list_section(section) if section is not None else self.section
-        if len(sections) > 0:
-            for sec in self.section:
-                try:
-                    default = self._parser.get(sec, name)
-                except (configparser.NoSectionError, configparser.NoOptionError):
-                    pass
+        for sec in sections:
+            try:
+                default = self._parser.get(sec, name)
+                break
+            except (configparser.NoSectionError, configparser.NoOptionError):
+                pass
         if self._use_env:
             default = os.environ.get(self.metavar(name), default)
         return default

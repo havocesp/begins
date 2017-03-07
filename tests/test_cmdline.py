@@ -191,6 +191,7 @@ def test_variable_positional_with_annotation(self):
         expanduser.return_value = os.path.join(os.curdir, 'tests')
         parser = cmdline.create_parser(main, config_file='config_test.cfg', config_section=['foo', 'bar'])
         self.assertEqual(parser._optionals._actions[1].default, 'alt_value')
+        self.assertNotEqual(parser._optionals._actions[1].default, 'bar_alt_value')
         self.assertEqual(parser._optionals._actions[2].default, cmdline.NODEFAULT)
         self.assertEqual(parser._optionals._actions[3].default, 'foo_value')
         self.assertEqual(parser._optionals._actions[4].default, 'bar_value')
