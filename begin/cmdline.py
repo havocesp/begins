@@ -87,9 +87,10 @@ class DefaultsManager(object):
             return list()
         else:
             raise TypeError(
-                "'config_section' should be of {} or {}. You passed {}.".format(type(list()),
-                                                                                type(str()),
-                                                                                type(section)))
+                "'config_section' should be of {0} or {1}. You passed {2}.".format(
+                    type(list()),
+                    type(str()),
+                    type(section)))
         return _section
 
     def set_config_section(self, section):
